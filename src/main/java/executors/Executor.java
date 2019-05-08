@@ -1,19 +1,19 @@
 package executors;
 
+import annotations.TableName;
+import org.apache.commons.lang3.StringUtils;
 import datasets.DataSet;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class Executor {
-
-    private static final List<String> SYSTEM_FIELDS = Arrays.asList("TABLE_NAME", "SCHEMA_NAME");
+    private static Map<Class, String>  saveQueries = new HashMap<>();
+    private static Map<Class, String>  loadQueries = new HashMap<>();
 
     static List<Field> getAllFields (Class<?> clazz) {
         List<Field> fields = new ArrayList<>(Arrays.asList(clazz.getDeclaredFields()));
@@ -25,57 +25,77 @@ public class Executor {
     }
 
     static List<Field> getClassFields (Class<?> clazz) {
-        List<Field> fields = new ArrayList<>(Arrays.asList(clazz.getDeclaredFields()));
-
-        return fields;
+        return new ArrayList<>(Arrays.asList(clazz.getDeclaredFields()));
     }
 
+    private static String getSchema(Class clazz) {
+        return Optional.ofNullable((TableName) clazz.getAnnotation(TableName.class))
+                .map(a -> a.schemaName())
+                .orElse(null);
+    }
 
-    private static <T extends DataSet> String getInsertFromClass(T user) {
-        String sqlQuery = null;
-        List<Field> fields = getClassFields(user.getClass());
-        if (fields.size() > 0) {
+    private static String getTable(Class clazz) {
+        return Optional.ofNullable((TableName) clazz.getAnnotation(TableName.class))
+                .map(a -> a.tableName())
+                .orElse(null);
+    }
 
+    private static <T extends DataSet> String getSaveQueryFromClass(T user) {
+        String sqlQuery = saveQueries.get(user.getClass());
+        if (StringUtils.isEmpty(sqlQuery)) {
+            System.out.println("create new saveQuery to class " + user.getClass().getName().toString());
+            List<Field> fields = getClassFields(user.getClass());
+            if (fields.size() > 0) {
 
-            sqlQuery = fields.stream()
-                    .map(Field::getName).filter(x -> !SYSTEM_FIELDS.contains(x))
-                    .collect(Collectors.joining(", ",
-                            "INSERT INTO \"" +
-                                    user.getSchemaName() +
-                                    "\".\""+
-                                    user.getTableName() +
-                                    "\" (", ")"));
+                sqlQuery = fields.stream()
+                        .map(Field::getName)
+                        .collect(Collectors.joining(", ",
+                                "INSERT INTO \"" +
+                                        getSchema(user.getClass()) +
+                                        "\".\"" +
+                                        getTable(user.getClass()) +
+                                        "\" (", ")"));
 
-            sqlQuery = sqlQuery + fields.stream().filter(x -> !SYSTEM_FIELDS.contains(x.getName()))
-                    .map(x -> "?")
-                    .collect(Collectors.joining(", ", " VALUES (", ")"));
+                sqlQuery = sqlQuery + fields.stream()
+                        .map(x -> "?")
+                        .collect(Collectors.joining(", ", " VALUES (", ")"));
 
+            }
+            saveQueries.put(user.getClass(), sqlQuery);
+        } else {
+            System.out.println("load saveQuery to class " + user.getClass().getName().toString());
         }
         return sqlQuery;
     }
 
-    private static <T extends DataSet> String getSelectFromClass(Class<T> clazz) {
-        String sqlQuery = null;
-        List<Field> fields = getAllFields(clazz);
-        if (fields.size() > 0) {
+    private static <T extends DataSet> String getLoadQueryFromClass(Class<T> clazz) {
+        String sqlQuery = loadQueries.get(clazz);
+        if (StringUtils.isEmpty(sqlQuery)) {
+            System.out.println("create new loadQuery to class " + clazz.getName().toString());
+            List<Field> fields = getAllFields(clazz);
+            if (fields.size() > 0) {
 
-            sqlQuery = fields.stream()
-                    .map(Field::getName).filter(x -> !SYSTEM_FIELDS.contains(x))
-                    .collect(Collectors.joining(", ",
-                            " SELECT ",
-                            " FROM \"" +
-                                    T.getSchemaName() +
-                                    "\".\""+
-                                    T.getTableName() +
-                            "\" ")) + " WHERE id = ? ";
+                sqlQuery = fields.stream()
+                        .map(Field::getName)
+                        .collect(Collectors.joining(", ",
+                                " SELECT ",
+                                " FROM \"" +
+                                        getSchema(clazz) +
+                                        "\".\"" +
+                                        getTable(clazz) +
+                                        "\" ")) + " WHERE id = ? ";
 
+            }
+            loadQueries.put(clazz, sqlQuery);
+        } else {
+            System.out.println("load loadQuery to class " + clazz.getName().toString());
         }
         return sqlQuery;
     }
 
 
     public static <T extends DataSet> void save(Connection connection, T user) {
-        String query = getInsertFromClass(user);
+        String query = getSaveQueryFromClass(user);
 
         if (!query.isEmpty()) {
             try {
@@ -89,7 +109,6 @@ public class Executor {
                 ResultSet resultSet = preparedStatement.getGeneratedKeys();
                 if (resultSet.next()) {
                     user.setId(resultSet.getLong(1));
-                    //return user;
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -97,33 +116,28 @@ public class Executor {
                 e.printStackTrace();
             }
         }
-        //return null;
     }
 
 
     public static <T extends DataSet> T load(Connection connection, long id, Class<T> clazz) {
-        String query = getSelectFromClass(clazz);
+        String query = getLoadQueryFromClass(clazz);
         if (!query.isEmpty()) {
             try {
                 PreparedStatement preparedStatement = connection.prepareStatement(query);
                 preparedStatement.setObject(1, id);
 
-
                 ResultSet resultSet = preparedStatement.executeQuery();
 
                 List<Field> fields = getAllFields(clazz)
                         .stream()
-                        .filter(f -> !SYSTEM_FIELDS.contains(f.getName()))
                         .collect(Collectors.toList());
 
                 Constructor<?> ctor = clazz.getConstructor(String.class, Integer.class);
                 T dataSet = (T) ctor.newInstance(null, null);
 
                 resultSet.next();
-                //T dataSet = new T();
                 for (Field field : fields) {
                     field.setAccessible(true);
-                    System.out.println("load:" + field.getType() + " " + field.getName());
                     if (field.getType().equals(Integer.class)) {
                         field.set(dataSet, resultSet.getInt(field.getName()));
                     } else {

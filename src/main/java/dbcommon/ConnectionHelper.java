@@ -1,8 +1,6 @@
 package dbcommon;
 
-import java.lang.reflect.InvocationTargetException;
 import java.sql.Connection;
-import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
@@ -21,7 +19,6 @@ public class ConnectionHelper {
                 "5432/" +                    //port
                 "postgres?" +                //db name
                 "user=postgres&" +           //login
-                //"user=postgres" +
                 "password=sys";        //password
         return DriverManager.getConnection(url);
     }

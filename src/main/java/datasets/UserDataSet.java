@@ -1,5 +1,9 @@
 package datasets;
 
+
+import annotations.TableName;
+
+@TableName(schemaName = "otusHomeWork", tableName = "my_table")
 public class UserDataSet extends  DataSet {
 
 
@@ -10,15 +14,6 @@ public class UserDataSet extends  DataSet {
     public UserDataSet(String name, Integer age) {
         this.name = name;
         this.age = age;
-    }
-
-
-    public String getName() {
-        return name;
-    }
-
-    public Integer getAge() {
-        return age;
     }
 
     @Override
