@@ -5,12 +5,19 @@ import datasets.UserDataSet;
 import services.DBServiceHibernateImpl;
 import java.sql.SQLException;
 import java.util.Arrays;
+import org.hibernate.cfg.Configuration;
 
 public class Test {
 
     public static void main(String[] args) throws SQLException {
 
-        DBServiceHibernateImpl service = new DBServiceHibernateImpl();
+        Configuration configuration = new Configuration().configure("hibernate.cfg.xml")
+                .addAnnotatedClass(AddressDataSet.class)
+                .addAnnotatedClass(PhoneDataSet.class)
+                .addAnnotatedClass(UserDataSet.class);
+
+
+        DBServiceHibernateImpl service = new DBServiceHibernateImpl(configuration);
 
         UserDataSet vasjanPro = new UserDataSet("vasjanPro",
                 13,

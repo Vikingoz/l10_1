@@ -50,9 +50,12 @@ public class DBServiceHibernateImpl implements DBService {
 
     @Override
     public <T extends DataSet> void save(T user) {
+        Transaction transaction = null;
         try (Session session = sessionFactory.openSession()) {
+            transaction = session.beginTransaction();
             HibernateDAO dao = new HibernateDAO(session);
             dao.save(user);
+            transaction.commit();
         }
     }
 
