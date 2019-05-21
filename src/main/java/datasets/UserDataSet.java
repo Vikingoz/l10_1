@@ -29,6 +29,13 @@ public class UserDataSet extends  DataSet {
         this.adress = adress;
     }
 
+    public UserDataSet(String name, String age) {
+        this.name = name;
+        this.age = Integer.valueOf(age);
+        this.phones = null;
+        this.adress = null;
+    }
+
     @Override
     public String toString() {
         return "UserDataSet{" +

@@ -93,6 +93,30 @@ public class Executor {
         return sqlQuery;
     }
 
+    private static <T extends DataSet> String getLoadAllFieldsQueryFromClass(Class<T> clazz) {
+        String sqlQuery = loadQueries.get(clazz);
+        if (StringUtils.isEmpty(sqlQuery)) {
+            System.out.println("create new loadQuery to class " + clazz.getName().toString());
+            List<Field> fields = getAllFields(clazz);
+            if (fields.size() > 0) {
+
+                sqlQuery = fields.stream()
+                        .map(Field::getName)
+                        .collect(Collectors.joining(", ",
+                                " SELECT ",
+                                " FROM \"" +
+                                        getSchema(clazz) +
+                                        "\".\"" +
+                                        getTable(clazz) +
+                                        "\" "));
+
+            }
+            loadQueries.put(clazz, sqlQuery);
+        } else {
+            System.out.println("load loadAllFieldsQuery to class " + clazz.getName().toString());
+        }
+        return sqlQuery;
+    }
 
     public static <T extends DataSet> void save(Connection connection, T user) {
         String query = getSaveQueryFromClass(user);
@@ -146,6 +170,53 @@ public class Executor {
 
                 }
                 return dataSet;
+            } catch (SQLException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (NoSuchMethodException e) {
+                e.printStackTrace();
+            } catch (InvocationTargetException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+        return null;
+    }
+
+    public static <T extends DataSet> List<T> loadAll(Connection connection, Class<T> clazz) {
+        String query = getLoadAllFieldsQueryFromClass(clazz);
+        if (!query.isEmpty()) {
+            try {
+                PreparedStatement preparedStatement = connection.prepareStatement(query);
+                //preparedStatement.setObject(1, id);
+
+                ResultSet resultSet = preparedStatement.executeQuery();
+
+                List<Field> fields = getAllFields(clazz)
+                        .stream()
+                        .collect(Collectors.toList());
+
+                Constructor<?> ctor = clazz.getConstructor(String.class, Integer.class);
+
+                List<T> list = new ArrayList<>();
+                while(resultSet.next()) {
+                    T dataSet = (T) ctor.newInstance(null, null);
+                    for (Field field : fields) {
+                        field.setAccessible(true);
+                        if (field.getType().equals(Integer.class)) {
+                            field.set(dataSet, resultSet.getInt(field.getName()));
+                        } else {
+                            field.set(dataSet, resultSet.getObject(field.getName()));
+                        }
+
+                    }
+                    list.add(dataSet);
+                }
+                return list;
             } catch (SQLException e) {
                 e.printStackTrace();
             } catch (IllegalAccessException e) {

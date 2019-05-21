@@ -12,6 +12,8 @@ import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.service.ServiceRegistry;
 import services.DAO.*;
+
+import java.util.List;
 import java.util.function.Function;
 
 public class DBServiceHibernateImpl implements DBService {
@@ -64,6 +66,16 @@ public class DBServiceHibernateImpl implements DBService {
         return runInSession(session -> {
             HibernateDAO dao = new HibernateDAO(session);
             T resultSet = dao.load(id, clazz);
+            Hibernate.initialize(resultSet);
+            return resultSet;
+        });
+    }
+
+    @Override
+    public <T extends DataSet> List<T> loadAll(Class<T> clazz) {
+        return runInSession(session -> {
+            HibernateDAO dao = new HibernateDAO(session);
+            List<T> resultSet = dao.loadAll(clazz);
             Hibernate.initialize(resultSet);
             return resultSet;
         });

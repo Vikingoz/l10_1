@@ -5,7 +5,10 @@ import datasets.UserDataSet;
 import services.DBServiceHibernateImpl;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
+
 import org.hibernate.cfg.Configuration;
+import webpage.WebPage;
 
 public class Test {
 
@@ -42,12 +45,21 @@ public class Test {
         System.out.println("xXxmegaKillerxXx id = " + xXxmegaKillerxXx.getId());
 
 
-        UserDataSet vasjanProGamer = service.load(vasjanPro.getId(),  UserDataSet.class);
+        try {
+            new WebPage(service).start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        //List<UserDataSet> list = service.loadAll(UserDataSet.class);
+
+
+        /*UserDataSet vasjanProGamer = service.load(vasjanPro.getId(),  UserDataSet.class);
         UserDataSet nagibator2005Gamer = service.load(nagibator2005.getId(),  UserDataSet.class);
         UserDataSet xXxmegaKillerxXxGamer = service.load(xXxmegaKillerxXx.getId(),  UserDataSet.class);
 
         System.out.println(vasjanProGamer);
         System.out.println(nagibator2005Gamer);
-        System.out.println(xXxmegaKillerxXxGamer);
+        System.out.println(xXxmegaKillerxXxGamer);*/
     }
 }
